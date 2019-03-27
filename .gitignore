@@ -102,3 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# db_config
+db.cnf
+
+# migrations
+migrations/
