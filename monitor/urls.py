@@ -23,6 +23,6 @@ handler500 = 'ui.views.handler500'
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('ui.urls')),
+    # path('', include('ui.urls')),
     path('api/', include('api.urls')),
 ]

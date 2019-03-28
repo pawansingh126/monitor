@@ -13,17 +13,63 @@ from . serializers import *
 
 # Create your views here.
 
+res = dict(status=0, data=dict())
+
+def get_vehicle_type(vt, return_object=False):
+    if vt:
+        if isinstance(vt, str):
+            try:
+                vtype = VehicleTypes.objects.get(vtype=vt)
+            except:
+                return {}
+        elif isinstance(vt, int):
+            try:
+                vtype = VehicleTypes.objects.get(vt)
+            except:
+                return {}
+        if return_object:
+            return vtype
+        return VehicleTypesSerializer(vtype).data
+    return {}
+
 def get_vehicle(vehicle_number='', return_object=False):
     if vehicle_number:
-        try:
-            vehicle = Vehicles.objects.get(vehicle_number=vehicle_number)
-        except:
-            return {}
-        if vehicle:
-            if return_object:
-                return vehicle
-            return VehiclesSerializer(vehicle).data
+        if isinstance(vehicle_number, int):
+            try:
+                vehicle = Vehicles.objects.get(vehicle_number)
+            except:
+                return {}
+        else:
+            try:
+                vehicle = Vehicles.objects.get(vehicle_number=vehicle_number)
+            except:
+                return {}
+        if return_object:
+            return vehicle
+        return VehiclesSerializer(vehicle).data
     return {}
+
+def get_owner_type(ot, return_object=False):
+    if ot:
+        if isinstance(ot, str):
+            try:
+                otype = OwnerTypes.objects.get(owner_type=vt)
+            except:
+                return {}
+        elif isinstance(ot, int):
+            try:
+                otype = VehicleTypes.objects.get(ot)
+            except:
+                return {}
+        if return_object:
+            return otype
+        return OwnerTypesSerializer(otype).data
+    return {}
+
+def get_owner(owner, return_object=False):
+    if owner:
+        pass
+
 
 def find_active_unknown_entry(vehicle_number, return_object=False):
     entries = UnknownEntries.objects.filter(
@@ -93,40 +139,51 @@ class vehicleTypes(APIView):
         serializer = VehicleTypesSerializer(vt, many=True)
         return Response(serializer.data)
 
+    def post(self, request):
+        try:
+            vt = VehicleTypes(**request.data)
+            vt.save()
+            res["data"] = VehicleTypesSerializer(vt).data
+            res["status"] = 1
+        except Exception as e:
+            res['message'] = str(e)
+        return Response(res)
+
 class vehicles(APIView):
 
     def get(self, request, vehicle=''):
-        res = dict()
         if vehicle:
             res = get_vehicle(vehicle)
         else:
             vehicles  = Vehicles.objects.all()
             serializer = VehiclesSerializer(vehicles, many=True)
-            res = {
-                "count": len(vehicles),
-                "data": serializer.data
-            }
+            res["count"] = len(vehicles),
+            res["data"] = serializer.data
+            res["status"] = 1
         return Response(res)
 
     def post(self, request):
         vehicle_type = request.data.get('vehicle_type')
         if vehicle_type:
             try:
-                vt = VehicleTypes.objects.get(
-                    vtype=vehicle_type
-                )
-                request.data['vehicle_type'] = vt
+                vt = get_vehicle_type(vehicle_type, True)
+                if vt:
+                    request.data['vehicle_type'] = vt
+                else:
+                    raise 'Vehicle Type not found!'
             except:
-                return Response({ 'message': 'Vehicle Type not found!'},
-                                status=status.HTTP_400_BAD_REQUEST)
+                res["messages"] = 'Vehicle Type not found!'
+                return Response(res, status=status.HTTP_400_BAD_REQUEST)
         try:
             vehicle = Vehicles(**request.data)
             vehicle.save()
             serializer = VehiclesSerializer(vehicle)
-            return Response(serializer.data)
+            res["data"] = serializer.data
+            res["status"] = 1
+            return Response(res)
         except Exception as e:
-            return Response({"Error": str(e)},
-                            status=status.HTTP_400_BAD_REQUEST)
+            res["message"] = str(e)
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
 
 class markEntry(APIView):
@@ -180,13 +237,46 @@ class ownerTypes(APIView):
         serializer = OwnerTypesSerializer(ot, many=True)
         return Response(serializer.data)
 
+    def post(self, request):
+        try:
+            ot = OwnerTypes(**request.data)
+            ot.save()
+            res["data"] = OwnerTypesSerializer(ot).data
+            res["status"] = 1
+        except Exception as e:
+            res['message'] = str(e)
+        return Response(res)
+
 
 class owners(APIView):
 
     def get(self, request):
         owner  = Owners.objects.all()
-        serializer = OwnerSerializer(owner, many=True)
+        serializer = OwnersSerializer(owner, many=True)
         return Response(serializer.data)
+
+    def post(self, request):
+        owner_type = request.data.get('vehicle_type')
+        if owner_type:
+            try:
+                ot = get_owner_type(owner_type, True)
+                if ot:
+                    request.data['owner_type'] = ot
+                else:
+                    raise 'Owner Type not found!'
+            except:
+                res["messages"] = 'Owner Type not found!'
+                return Response(res, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            owner = Vehicles(**request.data)
+            owner.save()
+            serializer = OwnersSerializer(owner)
+            res["data"] = serializer.data
+            res["status"] = 1
+            return Response(res)
+        except Exception as e:
+            res["message"] = str(e)
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
 
 class vehicleMap(APIView):
@@ -196,6 +286,31 @@ class vehicleMap(APIView):
         serializer = EmpVehMapSerializer(evm, many=True)
         return Response(serializer.data)
 
+    def post(self, request):
+        owner = request.data.get('owner')
+        vehicle = request.data.get('vehicle')
+        if owner and vehicle:
+            try:
+                ot = get_owner(owner, True)
+                if ot:
+                    request.data['owner_type'] = ot
+                else:
+                    raise 'Owner Type not found!'
+            except:
+                res["messages"] = 'Owner Type not found!'
+                return Response(res, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            owner = Vehicles(**request.data)
+            owner.save()
+            serializer = OwnersSerializer(owner)
+            res["data"] = serializer.data
+            res["status"] = 1
+            return Response(res)
+        except Exception as e:
+            res["message"] = str(e)
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class attendance(APIView):
 
@@ -203,6 +318,9 @@ class attendance(APIView):
         registries  = Attendance.objects.all()
         serializer = VehiclesSerializer(registries, many=True)
         return Response(serializer.data)
+
+    def post(self, request):
+        pass
 
 
 class unknownEntries(APIView):
@@ -219,6 +337,20 @@ class mediaForUnknownVehicles(APIView):
         muv  = MediaForUnknownVehicles.objects.all()
         serializer = MediaForUnknownVehiclesSerializer(muv, many=True)
         return Response(serializer.data)
+
+    def post(self, request):
+        try:
+            unknown_entry = UnknownEntries.objects.get(request.data.get(
+                'unknown_entry'))
+            media = MediaForUnknownVehicles(unknown_entry=unknown_entry)
+            media.file = request.data.get('file')
+            media.save()
+            res['data'] = MediaForUnknownVehiclesSerializer(media).data
+            res['status'] = 1
+            return Response(res)
+        except Exception as e:
+            res['message'] = str(e)
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
 
 class usersList(APIView):
